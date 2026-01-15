@@ -1,0 +1,39 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import "dotenv/config"
+import express from "express"
+import cors from "cors"
+
+import { env } from "@/lib/env"
+import forgotPasswordRoute from "@/routes/forgot-password"
+import passwordResetRoute from "@/routes/password-reset"
+import sendLoginCredentialsRoute from "@/routes/send-login-credentials"
+
+const app = express()
+
+app.disable("x-powered-by")
+
+app.use(
+    cors({
+        origin: env.APP_ORIGIN,
+        credentials: true,
+    })
+)
+
+app.use(express.json({ limit: "2mb" }))
+
+// ✅ Health check
+app.get("/health", (_req, res) => {
+    res.status(200).json({
+        ok: true,
+        service: "workloadhub-express",
+    })
+})
+
+// ✅ Routes
+app.use("/api/auth/forgot-password", forgotPasswordRoute)
+app.use("/api/auth/password-reset", passwordResetRoute)
+app.use("/api/admin/send-login-credentials", sendLoginCredentialsRoute)
+
+app.listen(env.PORT, () => {
+    console.log(`✅ Express API running on http://localhost:${env.PORT}`)
+})

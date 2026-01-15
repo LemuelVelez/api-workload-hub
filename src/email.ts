@@ -2,19 +2,12 @@
 import nodemailer from "nodemailer"
 import { env } from "@/lib/env"
 
-export type SendMailOptions = {
+type SendMailArgs = {
     to: string
     subject: string
-    html?: string
-    text?: string
+    html: string
 }
 
-/**
- * ✅ Gmail SMTP transporter
- * Uses:
- * - GMAIL_USER
- * - GMAIL_APP_PASSWORD (Google App Password)
- */
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
@@ -23,20 +16,11 @@ const transporter = nodemailer.createTransport({
     },
 })
 
-export async function sendMail(opts: SendMailOptions) {
-    const to = (opts.to || "").trim().toLowerCase()
-    const subject = (opts.subject || "").trim()
-
-    if (!to) throw new Error("[email] Missing recipient 'to'.")
-    if (!subject) throw new Error("[email] Missing 'subject'.")
-
-    const info = await transporter.sendMail({
+export async function sendMail({ to, subject, html }: SendMailArgs) {
+    await transporter.sendMail({
         from: `"WorkloadHub" <${env.GMAIL_USER}>`,
         to,
         subject,
-        html: opts.html,
-        text: opts.text,
+        html,
     })
-
-    return info
 }

@@ -14,7 +14,7 @@ app.disable("x-powered-by")
 
 app.use(
     cors({
-        origin: env.APP_ORIGIN,
+        origin: env.SERVER_APP_ORIGIN,
         credentials: true,
     })
 )
@@ -36,4 +36,5 @@ app.use("/api/admin/send-login-credentials", sendLoginCredentialsRoute)
 
 app.listen(env.PORT, () => {
     console.log(`✅ Express API running on http://localhost:${env.PORT}`)
+    console.log(`✅ Allowed CORS origin: ${env.SERVER_APP_ORIGIN}`)
 })

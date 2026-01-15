@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import express from "express"
+import express, { Request, Response } from "express"
 import * as sdk from "node-appwrite"
 
 import { env } from "@/lib/env"
@@ -35,7 +35,7 @@ function generateTempPassword(length = 14) {
 
     for (let i = base.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
-            ;[base[i], base[j]] = [base[j], base[i]]
+        ;[base[i], base[j]] = [base[j], base[i]]
     }
 
     return base.join("")
@@ -109,12 +109,12 @@ async function safeCreateUser(users: any, userId: string, email: string, passwor
  *   resend?: boolean
  * }
  */
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request, res: Response) => {
     try {
-        const email = String(req.body?.email || "").trim().toLowerCase()
-        const name = typeof req.body?.name === "string" ? req.body.name.trim() : ""
-        const resend = Boolean(req.body?.resend)
-        const inputUserId = String(req.body?.userId || "").trim()
+        const email = String((req.body as any)?.email || "").trim().toLowerCase()
+        const name = typeof (req.body as any)?.name === "string" ? String((req.body as any).name).trim() : ""
+        const resend = Boolean((req.body as any)?.resend)
+        const inputUserId = String((req.body as any)?.userId || "").trim()
 
         if (!email) {
             return res.status(400).json({ ok: false, message: "Email is required." })
@@ -146,7 +146,7 @@ router.post("/", async (req, res) => {
         if (existingUser) {
             // ✅ If user exists: resend (reset password)
             action = "resent"
-            resolvedUserId = String(existingUser?.$id || existingUser?.id || "").trim()
+            resolvedUserId = String((existingUser as any)?.$id || (existingUser as any)?.id || "").trim()
 
             if (!resolvedUserId) {
                 return res.status(500).json({ ok: false, message: "Failed to resolve userId." })
@@ -174,7 +174,7 @@ router.post("/", async (req, res) => {
             const newUserId = sdk.ID.unique()
             const created = await safeCreateUser(users, newUserId, email, tempPassword, name || undefined)
 
-            resolvedUserId = String(created?.$id || created?.id || newUserId).trim()
+            resolvedUserId = String((created as any)?.$id || (created as any)?.id || newUserId).trim()
 
             await safeUpdatePrefs(users, resolvedUserId, {
                 mustChangePassword: true,
@@ -184,7 +184,7 @@ router.post("/", async (req, res) => {
             })
         }
 
-        const loginUrl = `${env.APP_ORIGIN.replace(/\/$/, "")}/auth/login`
+        const loginUrl = `${env.SERVER_APP_ORIGIN.replace(/\/$/, "")}/auth/login`
 
         await sendMail({
             to: email,
@@ -197,10 +197,11 @@ router.post("/", async (req, res) => {
   <h2 style="margin:0 0 10px;">WorkloadHub Login Credentials</h2>
   <p>Hello${name ? ` ${escapeHtml(name)}` : ""},</p>
 
-  <p>${action === "resent"
-                    ? "Your credentials have been updated and a new temporary password was generated."
-                    : "Your account has been created by the administrator."
-                }</p>
+  <p>${
+      action === "resent"
+          ? "Your credentials have been updated and a new temporary password was generated."
+          : "Your account has been created by the administrator."
+  }</p>
 
   <div style="background:#f7f7f7;border:1px solid #e5e5e5;padding:12px;border-radius:10px;">
     <p style="margin:0 0 6px;"><b>Login URL:</b> <a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import express, { type Request, type Response } from "express"
+import express, { Request, Response } from "express"
 import { createHash, randomBytes } from "node:crypto"
 import * as sdk from "node-appwrite"
 
@@ -17,10 +17,6 @@ type ResetTokenRecord = {
     userId: string
     email: string
     expiresAt: number
-}
-
-type ForgotPasswordBody = {
-    email?: string
 }
 
 const RESET_TOKENS = new Map<string, ResetTokenRecord>()
@@ -53,9 +49,9 @@ async function getUserByEmail(email: string) {
  * POST /api/auth/forgot-password
  * body: { email: string }
  */
-router.post("/", async (req: Request<{}, any, ForgotPasswordBody>, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
     try {
-        const email = String(req.body?.email || "").trim().toLowerCase()
+        const email = String((req.body as any)?.email || "").trim().toLowerCase()
 
         if (!email) {
             return res.status(400).json({ ok: false, message: "Email is required." })
@@ -88,7 +84,7 @@ router.post("/", async (req: Request<{}, any, ForgotPasswordBody>, res: Response
             expiresAt,
         })
 
-        const resetUrl = `${env.APP_ORIGIN}/auth/reset-password?token=${rawToken}`
+        const resetUrl = `${env.SERVER_APP_ORIGIN}/auth/reset-password?token=${rawToken}`
 
         await sendMail({
             to: email,

@@ -26,9 +26,7 @@ function optional(_name: string, value: MaybeString): string | undefined {
 
 function normalizeUrl(name: string, value: string): string {
     try {
-        // Ensure valid URL
         const url = new URL(value)
-        // Remove trailing slash
         return url.toString().replace(/\/$/, "")
     } catch {
         throw new Error(`[env] Invalid URL for ${name}: ${value}`)
@@ -36,7 +34,6 @@ function normalizeUrl(name: string, value: string): string {
 }
 
 function ensureV1(endpoint: string) {
-    // Appwrite SDK expects /v1
     const ep = endpoint.replace(/\/+$/, "")
     return ep.endsWith("/v1") ? ep : `${ep}/v1`
 }
@@ -47,6 +44,11 @@ export function getServerEnv() {
     const APPWRITE_ENDPOINT_RAW = required("APPWRITE_ENDPOINT", process.env.APPWRITE_ENDPOINT)
     const APPWRITE_ENDPOINT = ensureV1(normalizeUrl("APPWRITE_ENDPOINT", APPWRITE_ENDPOINT_RAW))
 
+    // ✅ FRONTEND ORIGIN (CORS + Email Links)
+    const SERVER_APP_ORIGIN =
+        optional("SERVER_APP_ORIGIN", process.env.SERVER_APP_ORIGIN) ??
+        "http://127.0.0.1:5173"
+
     return Object.freeze({
         PORT,
 
@@ -55,10 +57,8 @@ export function getServerEnv() {
         APPWRITE_PROJECT_ID: required("APPWRITE_PROJECT_ID", process.env.APPWRITE_PROJECT_ID),
         APPWRITE_API_KEY: required("APPWRITE_API_KEY", process.env.APPWRITE_API_KEY),
 
-        // ✅ Your frontend URL (for links inside emails)
-        APP_ORIGIN:
-            optional("APP_ORIGIN", process.env.APP_ORIGIN) ??
-            "http://127.0.0.1:5173",
+        // ✅ Your frontend origin (used for CORS + email links)
+        SERVER_APP_ORIGIN: normalizeUrl("SERVER_APP_ORIGIN", SERVER_APP_ORIGIN),
 
         // ✅ Gmail SMTP (ExpressJS mail sender)
         GMAIL_USER: required("GMAIL_USER", process.env.GMAIL_USER),

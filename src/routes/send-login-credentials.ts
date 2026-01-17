@@ -35,7 +35,7 @@ function generateTempPassword(length = 14) {
 
     for (let i = base.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1))
-        ;[base[i], base[j]] = [base[j], base[i]]
+            ;[base[i], base[j]] = [base[j], base[i]]
     }
 
     return base.join("")
@@ -99,6 +99,148 @@ async function safeCreateUser(users: any, userId: string, email: string, passwor
 }
 
 /**
+ * ✅ Styled WorkloadHub Email Template
+ * NOTE: Emails cannot use Tailwind or your index.css directly.
+ * We mimic your midnight theme using inline styles (email-safe).
+ */
+function buildCredentialsEmailHtml(opts: {
+    name?: string
+    email: string
+    loginUrl: string
+    tempPassword: string
+    action: "created" | "resent"
+}) {
+    const safeName = opts.name ? escapeHtml(opts.name) : ""
+    const safeEmail = escapeHtml(opts.email)
+    const safeLoginUrl = escapeHtml(opts.loginUrl)
+    const safeTempPassword = escapeHtml(opts.tempPassword)
+
+    const heading = opts.action === "resent" ? "Credentials Updated" : "Welcome to WorkloadHub"
+
+    const introText =
+        opts.action === "resent"
+            ? "Your login credentials have been updated. A new temporary password was generated for your account."
+            : "Your WorkloadHub account has been created by the administrator. Please use the credentials below to sign in."
+
+    // Email-safe theme colors (approx from your index.css midnight theme)
+    const c = {
+        bg1: "#0B1020",
+        bg2: "#101A34",
+        card: "#121C36",
+        border: "rgba(255,255,255,0.12)",
+        text: "#F2F6FF",
+        muted: "#B9C3D6",
+        primary: "#5AA6FF",
+        primaryText: "#071024",
+        codeBg: "rgba(255,255,255,0.06)",
+        soft: "rgba(255,255,255,0.07)",
+    }
+
+    return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="supported-color-schemes" content="dark light" />
+  <title>WorkloadHub Credentials</title>
+</head>
+<body style="margin:0;padding:0;background:${c.bg1};font-family:Arial,Helvetica,sans-serif;color:${c.text};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:${c.bg1};">
+    <tr>
+      <td align="center" style="padding:28px 12px;background:${c.bg1};">
+        
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+          style="width:100%;max-width:600px;border-collapse:collapse;border-radius:18px;overflow:hidden;border:1px solid ${c.border};background:${c.bg2};">
+          
+          <!-- Header (NO logo, NO tagline) -->
+          <tr>
+            <td style="padding:18px 20px;background:linear-gradient(135deg, ${c.bg1}, ${c.bg2});border-bottom:1px solid ${c.border};">
+              <div style="font-size:16px;font-weight:800;letter-spacing:0.3px;margin:0;color:${c.text};">
+                WorkloadHub
+              </div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:22px 20px;background:${c.bg2};">
+              <div style="font-size:18px;font-weight:800;margin:0 0 10px;color:${c.text};">
+                ${heading}
+              </div>
+
+              <div style="font-size:14px;line-height:1.6;color:${c.muted};margin:0 0 14px;">
+                Hello${safeName ? ` <span style="color:${c.text};font-weight:700;">${safeName}</span>` : ""},<br/>
+                ${introText}
+              </div>
+
+              <!-- Credentials Card -->
+              <div style="background:${c.card};border:1px solid ${c.border};border-radius:16px;padding:14px 14px;margin:14px 0;">
+                <div style="font-size:13px;color:${c.muted};margin-bottom:10px;">
+                  Use the following credentials to sign in:
+                </div>
+
+                <div style="margin-bottom:10px;">
+                  <div style="font-size:12px;color:${c.muted};margin-bottom:6px;">Login URL</div>
+                  <a href="${safeLoginUrl}" 
+                     style="display:inline-block;color:${c.primary};text-decoration:none;font-weight:700;word-break:break-word;">
+                    ${safeLoginUrl}
+                  </a>
+                </div>
+
+                <div style="margin-bottom:10px;">
+                  <div style="font-size:12px;color:${c.muted};margin-bottom:6px;">Email</div>
+                  <div style="font-size:14px;color:${c.text};font-weight:700;word-break:break-word;">
+                    ${safeEmail}
+                  </div>
+                </div>
+
+                <div style="margin-bottom:0;">
+                  <div style="font-size:12px;color:${c.muted};margin-bottom:6px;">Temporary Password</div>
+                  <div style="background:${c.codeBg};border:1px solid ${c.border};border-radius:12px;padding:10px 12px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace;font-size:14px;color:${c.text};">
+                    ${safeTempPassword}
+                  </div>
+                </div>
+              </div>
+
+              <!-- CTA Button -->
+              <div style="margin:14px 0 8px;">
+                <a href="${safeLoginUrl}"
+                   style="display:inline-block;background:${c.primary};color:${c.primaryText};text-decoration:none;font-weight:900;padding:11px 16px;border-radius:14px;">
+                  Sign in to WorkloadHub →
+                </a>
+              </div>
+
+              <!-- Notes -->
+              <div style="background:${c.soft};border:1px solid ${c.border};border-radius:16px;padding:12px 14px;margin-top:14px;">
+                <div style="font-size:13px;color:${c.text};font-weight:800;margin-bottom:6px;">
+                  Important
+                </div>
+                <div style="font-size:13px;line-height:1.6;color:${c.muted};">
+                  ✅ On your first login, you must change your password.<br/>
+                  ✅ After changing your password, your account will be verified automatically.
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div style="margin-top:16px;font-size:12px;line-height:1.6;color:${c.muted};">
+                If you did not expect this email, you can safely ignore it.<br/>
+                <span style="opacity:0.9;">© ${new Date().getFullYear()} WorkloadHub</span>
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <div style="height:18px;"></div>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+/**
  * POST /api/admin/send-login-credentials
  *
  * body:
@@ -139,12 +281,30 @@ router.post("/", async (req: Request, res: Response) => {
             existingUser = await safeFindUserByEmail(users, email)
         }
 
+        // ✅ NEW SAFETY RULE:
+        // - If user EXISTS and resend=false => DO NOT reset password, return conflict
+        // - Only reset password when resend=true
+        if (existingUser && !resend) {
+            return res.status(409).json({
+                ok: false,
+                message: "User already exists. Use 'Resend Credentials' if you want to reset the password.",
+            })
+        }
+
+        // ✅ If resend=true but user NOT FOUND
+        if (!existingUser && resend) {
+            return res.status(404).json({
+                ok: false,
+                message: "User not found. Cannot resend credentials.",
+            })
+        }
+
         let action: "created" | "resent" = "created"
         let resolvedUserId = ""
         const tempPassword = generateTempPassword(14)
 
         if (existingUser) {
-            // ✅ If user exists: resend (reset password)
+            // ✅ RESEND credentials (reset password)
             action = "resent"
             resolvedUserId = String((existingUser as any)?.$id || (existingUser as any)?.id || "").trim()
 
@@ -154,21 +314,14 @@ router.post("/", async (req: Request, res: Response) => {
 
             await safeUpdatePassword(users, resolvedUserId, tempPassword)
 
-            // ✅ Force flags (best effort)
+            // ✅ Force first-login change password again
             await safeUpdatePrefs(users, resolvedUserId, {
                 mustChangePassword: true,
                 isVerified: false,
                 credentialsResentAt: new Date().toISOString(),
             })
         } else {
-            if (resend) {
-                return res.status(404).json({
-                    ok: false,
-                    message: "User not found. Cannot resend credentials.",
-                })
-            }
-
-            // ✅ Create new Appwrite auth user
+            // ✅ CREATE new user
             action = "created"
 
             const newUserId = sdk.ID.unique()
@@ -186,39 +339,21 @@ router.post("/", async (req: Request, res: Response) => {
 
         const loginUrl = `${env.SERVER_APP_ORIGIN.replace(/\/$/, "")}/auth/login`
 
+        const html = buildCredentialsEmailHtml({
+            name: name || undefined,
+            email,
+            loginUrl,
+            tempPassword,
+            action,
+        })
+
         await sendMail({
             to: email,
             subject:
                 action === "resent"
                     ? "Your WorkloadHub Credentials (Updated)"
                     : "Your WorkloadHub Account Credentials",
-            html: `
-<div style="font-family: Arial, sans-serif; line-height:1.6;">
-  <h2 style="margin:0 0 10px;">WorkloadHub Login Credentials</h2>
-  <p>Hello${name ? ` ${escapeHtml(name)}` : ""},</p>
-
-  <p>${
-      action === "resent"
-          ? "Your credentials have been updated and a new temporary password was generated."
-          : "Your account has been created by the administrator."
-  }</p>
-
-  <div style="background:#f7f7f7;border:1px solid #e5e5e5;padding:12px;border-radius:10px;">
-    <p style="margin:0 0 6px;"><b>Login URL:</b> <a href="${escapeHtml(loginUrl)}">${escapeHtml(loginUrl)}</a></p>
-    <p style="margin:0 0 6px;"><b>Email:</b> ${escapeHtml(email)}</p>
-    <p style="margin:0;"><b>Temporary Password:</b> <code>${escapeHtml(tempPassword)}</code></p>
-  </div>
-
-  <p style="margin-top:12px;">
-    ✅ On your first login, you must change your password.<br/>
-    ✅ After changing your password, your account will be verified automatically.
-  </p>
-
-  <p style="color:#6b7280;font-size:12px;margin-top:12px;">
-    If you did not expect this email, you may ignore it.
-  </p>
-</div>
-`,
+            html,
         })
 
         return res.status(200).json({

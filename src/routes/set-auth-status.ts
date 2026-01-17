@@ -14,10 +14,12 @@ function createAdminClient() {
 }
 
 async function safeUpdateStatus(users: any, userId: string, status: boolean) {
+    // ✅ Newer SDK: updateStatus({ userId, status })
     try {
         await users.updateStatus({ userId, status })
         return true
     } catch {
+        // ✅ Older SDK: updateStatus(userId, status)
         await users.updateStatus(userId, status)
         return true
     }
@@ -25,14 +27,19 @@ async function safeUpdateStatus(users: any, userId: string, status: boolean) {
 
 async function safeDeleteSessions(users: any, userId: string) {
     // ✅ Optional: revoke sessions immediately when deactivated
-    const fn = (users as any)["deleteSessions"]?.bind(users)
+    const fn =
+        (users as any)["deleteSessions"]?.bind(users) ??
+        (users as any)["deleteUserSessions"]?.bind(users)
+
     if (!fn) return false
 
     try {
+        // newer: deleteSessions({ userId })
         await fn({ userId })
         return true
     } catch {
         try {
+            // older: deleteSessions(userId)
             await fn(userId)
             return true
         } catch {
@@ -64,7 +71,7 @@ router.post("/", async (req: Request, res: Response) => {
         const client = createAdminClient()
         const users = new sdk.Users(client)
 
-        // ✅ If user not found, we treat as OK (prevents UI freezing if already deleted)
+        // ✅ If user not found, treat as OK to avoid UI freezing
         try {
             await users.get(userId)
         } catch (e: any) {

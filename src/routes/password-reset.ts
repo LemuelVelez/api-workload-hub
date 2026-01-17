@@ -7,21 +7,34 @@ import { consumeResetToken } from "@/routes/forgot-password"
 
 const router = express.Router()
 
-async function updateUserPassword(userId: string, password: string) {
-    const client = new sdk.Client()
+function createAdminClient() {
+    return new sdk.Client()
         .setEndpoint(env.APPWRITE_ENDPOINT)
         .setProject(env.APPWRITE_PROJECT_ID)
         .setKey(env.APPWRITE_API_KEY)
+}
 
-    const users = new sdk.Users(client)
-
-    // ✅ Object-style then fallback positional
+async function safeUpdatePassword(users: any, userId: string, password: string) {
     try {
         await users.updatePassword({ userId, password })
         return true
     } catch {
         await users.updatePassword(userId, password)
         return true
+    }
+}
+
+async function safeUpdatePrefs(users: any, userId: string, prefs: Record<string, any>) {
+    try {
+        await users.updatePrefs({ userId, prefs })
+        return true
+    } catch {
+        try {
+            await users.updatePrefs(userId, prefs)
+            return true
+        } catch {
+            return false
+        }
     }
 }
 
@@ -52,10 +65,24 @@ router.post("/", async (req: Request, res: Response) => {
             })
         }
 
-        await updateUserPassword(rec.userId, password)
+        const client = createAdminClient()
+        const users = new sdk.Users(client)
+
+        await safeUpdatePassword(users, rec.userId, password)
+
+        // ✅ IMPORTANT: ensure user can login normally after reset
+        await safeUpdatePrefs(users, rec.userId, {
+            mustChangePassword: false,
+            isVerified: true,
+            verifiedAt: new Date().toISOString(),
+            verifiedBy: "password_reset_token",
+            passwordResetAt: new Date().toISOString(),
+        }).catch(() => null)
 
         return res.status(200).json({
             ok: true,
+            userId: rec.userId,
+            email: rec.email,
             message: "Password has been reset successfully.",
         })
     } catch (e: any) {

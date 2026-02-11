@@ -16,9 +16,6 @@ import setAuthStatusRoute from "@/routes/set-auth-status"
 
 const app = express()
 
-
-
-
 /* CORS_CONFIG_START */
 const allowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ||
@@ -42,7 +39,11 @@ const corsOptions: CorsOptions = {
 }
 
 app.use(cors(corsOptions))
-app.options("*", cors(corsOptions))
+
+// ✅ Express 5 / path-to-regexp fix:
+// "*" is no longer a valid unnamed wildcard path.
+// Use a named wildcard that matches all routes (including "/").
+app.options("/{*any}", cors(corsOptions))
 /* CORS_CONFIG_END */
 
 app.disable("x-powered-by")
@@ -51,10 +52,10 @@ app.use(express.json({ limit: "2mb" }))
 
 // ✅ Health check (supports both /health and /api/health)
 app.get(["/health", "/api/health"], (_req, res) => {
-    res.status(200).json({
-        ok: true,
-        service: "workloadhub-express",
-    })
+  res.status(200).json({
+    ok: true,
+    service: "workloadhub-express",
+  })
 })
 
 // ✅ Routes
@@ -71,6 +72,6 @@ app.use("/api/auth/verify-user", verifyUserRoute)
 app.use("/api/admin/set-auth-status", setAuthStatusRoute)
 
 app.listen(env.PORT, () => {
-    console.log(`✅ Express API running on http://localhost:${env.PORT}`)
-    console.log(`✅ Allowed CORS origin: ${env.SERVER_APP_ORIGIN}`)
+  console.log(`✅ Express API running on http://localhost:${env.PORT}`)
+  console.log(`✅ Allowed CORS origin: ${env.SERVER_APP_ORIGIN}`)
 })

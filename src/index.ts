@@ -17,19 +17,44 @@ import setAuthStatusRoute from "@/routes/set-auth-status"
 const app = express()
 
 /* CORS_CONFIG_START */
-const allowedOrigins = (
+function normalizeOrigin(value: string): string {
+  const v = String(value || "").trim()
+  if (!v) return ""
+  try {
+    return new URL(v).origin
+  } catch {
+    return v.replace(/\/+$/, "")
+  }
+}
+
+const rawAllowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ||
   process.env.SERVER_APP_ORIGIN ||
-  "http://localhost:5173,https://workloadhub.jrmsu-tc.cloud"
+  "http://localhost:5173,http://127.0.0.1:5173,https://workloadhub.jrmsu-tc.cloud"
 )
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean)
 
+const allowedOrigins = Array.from(new Set(rawAllowedOrigins.map(normalizeOrigin).filter(Boolean)))
+
+function isLocalDevOrigin(origin: string) {
+  return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+}
+
 const corsOptions: CorsOptions = {
   origin(origin, callback) {
+    // allow server-to-server or same-origin requests without Origin header
     if (!origin) return callback(null, true)
-    if (allowedOrigins.includes(origin)) return callback(null, true)
+
+    const requestOrigin = normalizeOrigin(origin)
+
+    // exact allowlist
+    if (allowedOrigins.includes(requestOrigin)) return callback(null, true)
+
+    // local dev convenience (localhost / 127.0.0.1 with any port)
+    if (isLocalDevOrigin(requestOrigin)) return callback(null, true)
+
     return callback(new Error(`CORS blocked for origin: ${origin}`))
   },
   credentials: true,
@@ -40,10 +65,15 @@ const corsOptions: CorsOptions = {
 
 app.use(cors(corsOptions))
 
-// ✅ Express 5 / path-to-regexp fix:
-// "*" is no longer a valid unnamed wildcard path.
-// Use a named wildcard that matches all routes (including "/").
-app.options("/{*any}", cors(corsOptions))
+// ✅ IMPORTANT (Express 5):
+// Do NOT use app.options("*", ...). It crashes with path-to-regexp v8.
+// Global app.use(cors(...)) already handles OPTIONS preflight.
+app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err?.message?.startsWith("CORS blocked for origin:")) {
+    return res.status(403).json({ ok: false, message: err.message })
+  }
+  return next(err)
+})
 /* CORS_CONFIG_END */
 
 app.disable("x-powered-by")
@@ -73,5 +103,5 @@ app.use("/api/admin/set-auth-status", setAuthStatusRoute)
 
 app.listen(env.PORT, () => {
   console.log(`✅ Express API running on http://localhost:${env.PORT}`)
-  console.log(`✅ Allowed CORS origin: ${env.SERVER_APP_ORIGIN}`)
+  console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(", ")}`)
 })

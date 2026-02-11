@@ -17,8 +17,6 @@ import setAuthStatusRoute from "@/routes/set-auth-status"
 const app = express()
 
 
-
-
 /* CORS_CONFIG_START */
 const allowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ||

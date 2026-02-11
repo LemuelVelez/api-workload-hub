@@ -77,8 +77,25 @@ app.use((err: any, _req: express.Request, res: express.Response, next: express.N
 /* CORS_CONFIG_END */
 
 app.disable("x-powered-by")
-
 app.use(express.json({ limit: "2mb" }))
+
+// ✅ Root route (fixes: Cannot GET /)
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: "workloadhub-express",
+    message: "API is running",
+    docs: {
+      health: "/health",
+      apiHealth: "/api/health",
+    },
+  })
+})
+
+// Optional: avoid browser favicon 404 noise
+app.get("/favicon.ico", (_req, res) => {
+  res.status(204).end()
+})
 
 // ✅ Health check (supports both /health and /api/health)
 app.get(["/health", "/api/health"], (_req, res) => {
@@ -100,6 +117,26 @@ app.use("/api/auth/verify-user", verifyUserRoute)
 
 // ✅ NEW: Enable/Disable Auth login status
 app.use("/api/admin/set-auth-status", setAuthStatusRoute)
+
+// ✅ Not found handler (JSON instead of HTML)
+app.use((req, res) => {
+  res.status(404).json({
+    ok: false,
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+  })
+})
+
+// ✅ Final error handler
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("Unhandled error:", err)
+  const status = Number(err?.status || err?.statusCode || 500)
+  const message = err?.message || "Internal Server Error"
+
+  res.status(status).json({
+    ok: false,
+    message,
+  })
+})
 
 app.listen(env.PORT, () => {
   console.log(`✅ Express API running on http://localhost:${env.PORT}`)

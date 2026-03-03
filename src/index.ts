@@ -30,7 +30,7 @@ function normalizeOrigin(value: string): string {
 const rawAllowedOrigins = (
   process.env.CORS_ALLOWED_ORIGINS ||
   process.env.SERVER_APP_ORIGIN ||
-  "http://localhost:5173,http://127.0.0.1:5173,https://workloadhub.jrmsu-tc.cloud"
+  "http://localhost:5173,http://127.0.0.1:5173,https://workloadhub.jrmsu-tc.online"
 )
   .split(",")
   .map((s) => s.trim())

@@ -27,19 +27,65 @@ function normalizeOrigin(value: string): string {
   }
 }
 
-const rawAllowedOrigins = (
-  process.env.CORS_ALLOWED_ORIGINS ||
-  process.env.SERVER_APP_ORIGIN ||
-  "http://localhost:5173,http://127.0.0.1:5173,https://workloadhub.jrmsu-tc.online"
-)
-  .split(",")
+function wildcardToRegExp(pattern: string): RegExp | null {
+  const p = String(pattern || "").trim()
+  if (!p || !p.includes("*")) return null
+  const escaped = p.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")
+  return new RegExp(`^${escaped}$`, "i")
+}
+
+const isProd = String(process.env.NODE_ENV || "").toLowerCase() === "production"
+
+// Keep defaults tight in prod; include localhost only for dev
+const defaultOrigins = [
+  "https://workloadhub.jrmsu-tc.online",
+  "https://workloadhub.jrmsu-tc.cloud",
+  ...(isProd ? [] : ["http://localhost:5173", "http://127.0.0.1:5173"]),
+]
+
+// ✅ IMPORTANT FIX:
+// Do NOT use `A || B || defaults` because setting ONE env var unintentionally drops the other.
+// Merge all sources instead (env + defaults), and split by comma OR whitespace.
+const rawAllowedOrigins = [process.env.CORS_ALLOWED_ORIGINS, process.env.SERVER_APP_ORIGIN, ...defaultOrigins]
+  .filter(Boolean)
+  .join(",")
+  .split(/[,\s]+/)
   .map((s) => s.trim())
   .filter(Boolean)
 
 const allowedOrigins = Array.from(new Set(rawAllowedOrigins.map(normalizeOrigin).filter(Boolean)))
 
+// Support wildcard entries like: https://*.jrmsu-tc.online
+const wildcardPatterns = rawAllowedOrigins.map(wildcardToRegExp).filter(Boolean) as RegExp[]
+
+// Safety net for your owned domains (prevents “forgot to add origin” outages)
+const ownedDomainPatterns: RegExp[] = [
+  /^https:\/\/([a-z0-9-]+\.)*jrmsu-tc\.online$/i,
+  /^https:\/\/([a-z0-9-]+\.)*jrmsu-tc\.cloud$/i,
+]
+
 function isLocalDevOrigin(origin: string) {
   return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)
+}
+
+function isAllowedOrigin(origin: string) {
+  if (!origin) return true
+  const o = normalizeOrigin(origin)
+  if (!o) return false
+
+  // exact allowlist
+  if (allowedOrigins.includes(o)) return true
+
+  // local dev convenience
+  if (!isProd && isLocalDevOrigin(o)) return true
+
+  // wildcard allowlist entries
+  if (wildcardPatterns.some((re) => re.test(o))) return true
+
+  // owned domains safety net
+  if (ownedDomainPatterns.some((re) => re.test(o))) return true
+
+  return false
 }
 
 const corsOptions: CorsOptions = {
@@ -47,27 +93,22 @@ const corsOptions: CorsOptions = {
     // allow server-to-server or same-origin requests without Origin header
     if (!origin) return callback(null, true)
 
-    const requestOrigin = normalizeOrigin(origin)
-
-    // exact allowlist
-    if (allowedOrigins.includes(requestOrigin)) return callback(null, true)
-
-    // local dev convenience (localhost / 127.0.0.1 with any port)
-    if (isLocalDevOrigin(requestOrigin)) return callback(null, true)
+    if (isAllowedOrigin(origin)) return callback(null, true)
 
     return callback(new Error(`CORS blocked for origin: ${origin}`))
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+  // Let cors reflect requested headers automatically (prevents missing-header preflight issues)
   optionsSuccessStatus: 204,
 }
 
 app.use(cors(corsOptions))
 
-// ✅ IMPORTANT (Express 5):
-// Do NOT use app.options("*", ...). It crashes with path-to-regexp v8.
-// Global app.use(cors(...)) already handles OPTIONS preflight.
+// ✅ Explicit OPTIONS handler (Express 5 safe using RegExp, not "*")
+app.options(/.*/, cors(corsOptions))
+
+// Friendly JSON for blocked origins (helps debugging)
 app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err?.message?.startsWith("CORS blocked for origin:")) {
     return res.status(403).json({ ok: false, message: err.message })
